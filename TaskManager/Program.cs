@@ -1,10 +1,19 @@
+using Microsoft.EntityFrameworkCore;
 using System.Text.Json.Serialization;
+using TaskManager.Data;
 using TaskManager.Models;
 using TaskManager.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddSingleton<TaskService>();
+var dbPath = Path.Combine(
+    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+    ".taskmanager", "tasks.db");
+
+builder.Services.AddDbContext<TaskDbContext>(options =>
+    options.UseSqlite($"Data Source={dbPath}"));
+
+builder.Services.AddScoped<TaskService>();
 
 // Use string enum values ("High") instead of numbers (2) in JSON responses
 builder.Services.ConfigureHttpJsonOptions(opts =>

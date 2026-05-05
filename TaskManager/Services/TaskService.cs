@@ -1,38 +1,18 @@
-using System.Text.Json;
+using TaskManager.Data;
 using TaskManager.Models;
 
 namespace TaskManager.Services;
 
-public class TaskService
+public class TaskService(TaskDbContext context)
 {
-    private readonly string _filePath;
-    private List<TaskItem> _tasks;
+    public IReadOnlyList<TaskItem> GetAll() => context.Tasks.ToList();
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = true,
-        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
-    };
+    public TaskItem? GetById(Guid id) => context.Tasks.Find(id);
 
-    public TaskService()
-    {
-        var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".taskmanager");
-        Directory.CreateDirectory(dir);
-        _filePath = Path.Combine(dir, "tasks.json");
-        _tasks = Load();
-    }
-
-    // ── Public API ────────────────────────────────────────────────────────────
-
-    public IReadOnlyList<TaskItem> GetAll() => _tasks.AsReadOnly();
-
-    public TaskItem? GetById(Guid id) => _tasks.FirstOrDefault(t => t.Id == id);
-
-    /// Finds a task by a short ID prefix. Returns null and prints an error if
-    /// the prefix matches zero or more than one task.
     public (TaskItem? Task, string? Error) FindByPrefix(string prefix)
     {
-        var matches = _tasks
+        var matches = context.Tasks
+            .AsEnumerable()
             .Where(t => t.Id.ToString().StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             .ToList();
 
@@ -53,8 +33,8 @@ public class TaskService
             DueDate = dueDate,
             Priority = priority
         };
-        _tasks.Add(task);
-        Save();
+        context.Tasks.Add(task);
+        context.SaveChanges();
         return task;
     }
 
@@ -63,7 +43,7 @@ public class TaskService
         var task = GetById(id);
         if (task is null) return false;
         task.IsCompleted = true;
-        Save();
+        context.SaveChanges();
         return true;
     }
 
@@ -71,8 +51,8 @@ public class TaskService
     {
         var task = GetById(id);
         if (task is null) return false;
-        _tasks.Remove(task);
-        Save();
+        context.Tasks.Remove(task);
+        context.SaveChanges();
         return true;
     }
 
@@ -86,30 +66,7 @@ public class TaskService
         if (dueDate is not null) task.DueDate = dueDate;
         if (priority is not null) task.Priority = priority.Value;
 
-        Save();
+        context.SaveChanges();
         return true;
-    }
-
-    // ── Persistence ───────────────────────────────────────────────────────────
-
-    private List<TaskItem> Load()
-    {
-        if (!File.Exists(_filePath)) return [];
-        try
-        {
-            var json = File.ReadAllText(_filePath);
-            return JsonSerializer.Deserialize<List<TaskItem>>(json, JsonOptions) ?? [];
-        }
-        catch (JsonException)
-        {
-            // Corrupted file — start fresh rather than crashing
-            return [];
-        }
-    }
-
-    private void Save()
-    {
-        var json = JsonSerializer.Serialize(_tasks, JsonOptions);
-        File.WriteAllText(_filePath, json);
     }
 }
