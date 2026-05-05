@@ -40,6 +40,11 @@ function renderTasks() {
     return new Date(a.dueDate) - new Date(b.dueDate);
   });
 
+  const pending = allTasks.filter(t => !t.isCompleted).length;
+  const countEl = document.getElementById('pending-count');
+  countEl.textContent = `${pending} pending`;
+  countEl.classList.toggle('hidden', pending === 0);
+
   const list  = document.getElementById('task-list');
   const empty = document.getElementById('empty-msg');
 
