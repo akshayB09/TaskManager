@@ -1,13 +1,6 @@
-using System.Text.Json.Serialization;
+using TaskManager.Domain.Enums;
 
-namespace TaskManager.Models;
-
-public enum Priority
-{
-    Low,
-    Medium,
-    High
-}
+namespace TaskManager.Domain.Entities;
 
 public class TaskItem
 {
