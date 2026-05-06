@@ -1,8 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using TaskManager.Models;
+using TaskManager.Domain.Entities;
+using TaskManager.Domain.Enums;
 
-namespace TaskManager.Data;
+namespace TaskManager.Infrastructure.Persistence;
 
 public class TaskDbContext(DbContextOptions<TaskDbContext> options) : DbContext(options)
 {

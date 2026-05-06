@@ -1,14 +1,14 @@
 @page "/"
 @rendermode InteractiveServer
-@inject TaskService TaskSvc
+@inject IMediator Mediator
 
 <PageTitle>Task Manager</PageTitle>
 
 <header class="header">
     <h1 class="logo">&#128203; Task Manager</h1>
-    @if (pendingCount > 0)
+    @if (PendingCount > 0)
     {
-        <span class="pending-count">@pendingCount pending</span>
+        <span class="pending-count">@PendingCount pending</span>
     }
     <button class="btn btn-primary" @onclick="OpenAddModal">+ New Task</button>
 </header>
@@ -49,10 +49,10 @@
                     <div class="task-actions">
                         @if (!task.IsCompleted)
                         {
-                            <button class="btn btn-sm btn-complete" @onclick="@(() => CompleteTask(task.Id))">&#10003; Done</button>
+                            <button class="btn btn-sm btn-complete" @onclick="@(async () => await CompleteTask(task.Id))">&#10003; Done</button>
                         }
                         <button class="btn btn-sm btn-edit"   @onclick="@(() => OpenEditModal(task))">Edit</button>
-                        <button class="btn btn-sm btn-delete" @onclick="@(() => DeleteTask(task.Id))">Delete</button>
+                        <button class="btn btn-sm btn-delete" @onclick="@(async () => await DeleteTask(task.Id))">Delete</button>
                     </div>
                 </div>
             }
@@ -60,27 +60,27 @@
     </div>
 </main>
 
-@if (showModal)
+@if (_showModal)
 {
     <div class="modal-overlay" @onclick="CloseModal">
         <div class="modal" @onclick:stopPropagation>
-            <h2>@(editingId.HasValue ? "Edit Task" : "New Task")</h2>
+            <h2>@(_editingId.HasValue ? "Edit Task" : "New Task")</h2>
             <div class="field">
                 <label>Title <span class="required">*</span></label>
-                <input type="text" @bind="formTitle" placeholder="What needs to be done?" />
+                <input type="text" @bind="_formTitle" placeholder="What needs to be done?" />
             </div>
             <div class="field">
                 <label>Description</label>
-                <textarea @bind="formDescription" placeholder="Optional details..." rows="2"></textarea>
+                <textarea @bind="_formDescription" placeholder="Optional details..." rows="2"></textarea>
             </div>
             <div class="row">
                 <div class="field">
                     <label>Due Date</label>
-                    <input type="date" @bind="formDueDate" />
+                    <input type="date" @bind="_formDueDate" />
                 </div>
                 <div class="field">
                     <label>Priority</label>
-                    <select @bind="formPriority">
+                    <select @bind="_formPriority">
                         <option value="Low">Low</option>
                         <option value="Medium">Medium</option>
                         <option value="High">High</option>
@@ -96,29 +96,30 @@
 }
 
 @code {
-    private List<TaskItem> allTasks = new();
-    private string currentFilter = "pending";
-    private bool showModal = false;
-    private Guid? editingId = null;
+    private List<TaskItem> _allTasks = [];
+    private string _currentFilter = "pending";
+    private bool _showModal;
+    private Guid? _editingId;
 
-    private string formTitle = "";
-    private string formDescription = "";
-    private DateOnly? formDueDate = null;
-    private string formPriority = "Medium";
+    private string _formTitle = "";
+    private string _formDescription = "";
+    private DateOnly? _formDueDate;
+    private string _formPriority = "Medium";
 
-    private int pendingCount => allTasks.Count(t => !t.IsCompleted);
+    private int PendingCount => _allTasks.Count(t => !t.IsCompleted);
 
-    protected override void OnInitialized() => LoadTasks();
+    protected override async Task OnInitializedAsync() => await LoadTasks();
 
-    private void LoadTasks() => allTasks = TaskSvc.GetAll().ToList();
+    private async Task LoadTasks()
+        => _allTasks = (await Mediator.Send(new GetAllTasksQuery())).ToList();
 
     private List<TaskItem> FilteredTasks()
     {
-        var filtered = currentFilter switch
+        var filtered = _currentFilter switch
         {
-            "all"  => allTasks,
-            "done" => allTasks.Where(t => t.IsCompleted).ToList(),
-            _      => allTasks.Where(t => !t.IsCompleted).ToList()
+            "all"  => _allTasks,
+            "done" => _allTasks.Where(t => t.IsCompleted).ToList(),
+            _      => _allTasks.Where(t => !t.IsCompleted).ToList()
         };
 
         var order = new Dictionary<Priority, int>
@@ -130,64 +131,64 @@
 
         return filtered
             .OrderBy(t => order[t.Priority])
-            .ThenBy(t => t.DueDate ?? DateTime.MaxValue)
+            .ThenBy(t => t.DueDate.GetValueOrDefault(DateTime.MaxValue))
             .ToList();
     }
 
-    private string ActiveClass(string filter) => currentFilter == filter ? "active" : "";
+    private string ActiveClass(string filter) => _currentFilter == filter ? "active" : "";
 
-    private void SetFilter(string filter) => currentFilter = filter;
+    private void SetFilter(string filter) => _currentFilter = filter;
 
     private static string FormatDueDate(DateTime? d) =>
         d.HasValue ? d.Value.ToString("d MMM yyyy") : "No due date";
 
     private void OpenAddModal()
     {
-        editingId = null;
-        formTitle = "";
-        formDescription = "";
-        formDueDate = null;
-        formPriority = "Medium";
-        showModal = true;
+        _editingId = null;
+        _formTitle = "";
+        _formDescription = "";
+        _formDueDate = null;
+        _formPriority = "Medium";
+        _showModal = true;
     }
 
     private void OpenEditModal(TaskItem task)
     {
-        editingId = task.Id;
-        formTitle = task.Title;
-        formDescription = task.Description ?? "";
-        formDueDate = task.DueDate.HasValue ? DateOnly.FromDateTime(task.DueDate.Value) : null;
-        formPriority = task.Priority.ToString();
-        showModal = true;
+        _editingId = task.Id;
+        _formTitle = task.Title;
+        _formDescription = task.Description;
+        _formDueDate = task.DueDate.HasValue ? DateOnly.FromDateTime(task.DueDate.Value) : null;
+        _formPriority = task.Priority.ToString();
+        _showModal = true;
     }
 
-    private void CloseModal() => showModal = false;
+    private void CloseModal() => _showModal = false;
 
-    private void SaveTask()
+    private async Task SaveTask()
     {
-        if (string.IsNullOrWhiteSpace(formTitle)) return;
+        if (string.IsNullOrWhiteSpace(_formTitle)) return;
 
-        var priority = Enum.Parse<Priority>(formPriority);
-        var dueDate = formDueDate.HasValue ? formDueDate.Value.ToDateTime(TimeOnly.MinValue) : (DateTime?)null;
+        var priority = Enum.Parse<Priority>(_formPriority);
+        var dueDate = _formDueDate?.ToDateTime(TimeOnly.MinValue);
 
-        if (editingId.HasValue)
-            TaskSvc.Edit(editingId.Value, formTitle, formDescription, dueDate, priority);
+        if (_editingId.HasValue)
+            await Mediator.Send(new EditTaskCommand(_editingId.Value, _formTitle, _formDescription, dueDate, priority));
         else
-            TaskSvc.Add(formTitle, formDescription, dueDate, priority);
+            await Mediator.Send(new AddTaskCommand(_formTitle, _formDescription, dueDate, priority));
 
         CloseModal();
-        LoadTasks();
+        await LoadTasks();
     }
 
-    private void CompleteTask(Guid id)
+    private async Task CompleteTask(Guid id)
     {
-        TaskSvc.Complete(id);
-        LoadTasks();
+        await Mediator.Send(new CompleteTaskCommand(id));
+        await LoadTasks();
     }
 
-    private void DeleteTask(Guid id)
+    private async Task DeleteTask(Guid id)
     {
-        TaskSvc.Delete(id);
-        LoadTasks();
+        await Mediator.Send(new DeleteTaskCommand(id));
+        await LoadTasks();
     }
 }
