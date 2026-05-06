@@ -1,12 +1,11 @@
 # Task Manager
 
-<!-- build pipeline test -->
-
 ## Quick Reference
 
 | Resource | Link |
 |----------|------|
 | GitHub Repo | https://github.com/akshayB09/TaskManager |
+| GitHub Actions | https://github.com/akshayB09/TaskManager/actions |
 | Jira Board | https://claudetaskproject.atlassian.net/jira/software/projects/TM/boards |
 | Jira Backlog | https://claudetaskproject.atlassian.net/jira/software/projects/TM/backlog |
 | Atlassian Site | https://claudetaskproject.atlassian.net |
@@ -113,6 +112,26 @@ Domain and Application have no knowledge of Infrastructure or the web framework.
 - Enums stored as strings (`EnumToStringConverter`) are readable in the database and immune to reordering bugs
 - Scoped `DbContext` lifetime (one per HTTP request) prevents change-tracker conflicts across concurrent requests
 - All data access is async (`ToListAsync`, `SaveChangesAsync`) to avoid blocking the thread pool
+
+## CI / CD
+
+The project uses **GitHub Actions** for continuous integration. The workflow file is at [.github/workflows/build.yml](.github/workflows/build.yml).
+
+### What runs
+
+| Step | Command |
+|------|---------|
+| Restore | `dotnet restore TaskManager/TaskManager.sln` |
+| Build | `dotnet build TaskManager/TaskManager.sln --no-restore --configuration Release` |
+
+### When it runs
+
+- On every **push** to any branch (except `main`)
+- On every **pull request** targeting `main`
+
+### Branch protection
+
+`main` is protected — a PR cannot be merged until the `build` check passes and the branch is up to date with `main`.
 
 ## Jira Issues
 
