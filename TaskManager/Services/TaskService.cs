@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using TaskManager.Data;
 using TaskManager.Models;
 
@@ -5,13 +6,14 @@ namespace TaskManager.Services;
 
 public class TaskService(TaskDbContext context)
 {
-    public IReadOnlyList<TaskItem> GetAll() => context.Tasks.ToList();
+    public IReadOnlyList<TaskItem> GetAll() => context.Tasks.AsNoTracking().ToList();
 
-    public TaskItem? GetById(Guid id) => context.Tasks.Find(id);
+    public TaskItem? GetById(Guid id) => context.Tasks.AsNoTracking().FirstOrDefault(t => t.Id == id);
 
     public (TaskItem? Task, string? Error) FindByPrefix(string prefix)
     {
         var matches = context.Tasks
+            .AsNoTracking()
             .AsEnumerable()
             .Where(t => t.Id.ToString().StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             .ToList();
@@ -40,7 +42,8 @@ public class TaskService(TaskDbContext context)
 
     public bool Complete(Guid id)
     {
-        var task = GetById(id);
+        context.ChangeTracker.Clear();
+        var task = context.Tasks.FirstOrDefault(t => t.Id == id);
         if (task is null) return false;
         task.IsCompleted = true;
         context.SaveChanges();
@@ -49,7 +52,8 @@ public class TaskService(TaskDbContext context)
 
     public bool Delete(Guid id)
     {
-        var task = GetById(id);
+        context.ChangeTracker.Clear();
+        var task = context.Tasks.FirstOrDefault(t => t.Id == id);
         if (task is null) return false;
         context.Tasks.Remove(task);
         context.SaveChanges();
@@ -58,7 +62,8 @@ public class TaskService(TaskDbContext context)
 
     public bool Edit(Guid id, string? title, string? description, DateTime? dueDate, Priority? priority)
     {
-        var task = GetById(id);
+        context.ChangeTracker.Clear();
+        var task = context.Tasks.FirstOrDefault(t => t.Id == id);
         if (task is null) return false;
 
         if (title is not null) task.Title = title;

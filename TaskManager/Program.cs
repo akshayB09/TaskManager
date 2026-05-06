@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json.Serialization;
+using TaskManager.Components;
 using TaskManager.Data;
 using TaskManager.Models;
 using TaskManager.Services;
@@ -15,14 +16,20 @@ builder.Services.AddDbContext<TaskDbContext>(options =>
 
 builder.Services.AddScoped<TaskService>();
 
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
+
 // Use string enum values ("High") instead of numbers (2) in JSON responses
 builder.Services.ConfigureHttpJsonOptions(opts =>
     opts.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 var app = builder.Build();
 
-app.UseDefaultFiles();   // serves wwwroot/index.html for "/"
-app.UseStaticFiles();    // serves wwwroot/ files
+app.UseStaticFiles();
+app.UseAntiforgery();
+
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
 
 var api = app.MapGroup("/api/tasks");
 

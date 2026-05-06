@@ -11,6 +11,10 @@ public class TaskDbContext(DbContextOptions<TaskDbContext> options) : DbContext(
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<TaskItem>()
+            .Property(t => t.Id)
+            .HasConversion(new GuidToStringConverter());
+
+        modelBuilder.Entity<TaskItem>()
             .Property(t => t.Priority)
             .HasConversion(new EnumToStringConverter<Priority>());
     }
