@@ -1,0 +1,193 @@
+@page "/"
+@rendermode InteractiveServer
+@inject TaskService TaskSvc
+
+<PageTitle>Task Manager</PageTitle>
+
+<header class="header">
+    <h1 class="logo">&#128203; Task Manager</h1>
+    @if (pendingCount > 0)
+    {
+        <span class="pending-count">@pendingCount pending</span>
+    }
+    <button class="btn btn-primary" @onclick="OpenAddModal">+ New Task</button>
+</header>
+
+<main class="main">
+    <div class="filters">
+        <button class="filter-btn @ActiveClass("pending")" @onclick="@(() => SetFilter("pending"))">Pending</button>
+        <button class="filter-btn @ActiveClass("all")"     @onclick="@(() => SetFilter("all"))">All</button>
+        <button class="filter-btn @ActiveClass("done")"    @onclick="@(() => SetFilter("done"))">Done</button>
+    </div>
+
+    <div class="task-list">
+        @if (!FilteredTasks().Any())
+        {
+            <p class="empty">No tasks here.</p>
+        }
+        else
+        {
+            @foreach (var task in FilteredTasks())
+            {
+                <div class="task-card priority-@task.Priority.ToString().ToLower() @(task.IsCompleted ? "done" : "")">
+                    <div class="task-top">
+                        <span class="task-title">@task.Title</span>
+                        @if (task.IsCompleted)
+                        {
+                            <span class="badge badge-done">Done</span>
+                        }
+                        else
+                        {
+                            <span class="badge badge-@task.Priority.ToString().ToLower()">@task.Priority</span>
+                        }
+                    </div>
+                    <div class="task-meta">@FormatDueDate(task.DueDate)</div>
+                    @if (!string.IsNullOrEmpty(task.Description))
+                    {
+                        <div class="task-desc">@task.Description</div>
+                    }
+                    <div class="task-actions">
+                        @if (!task.IsCompleted)
+                        {
+                            <button class="btn btn-sm btn-complete" @onclick="@(() => CompleteTask(task.Id))">&#10003; Done</button>
+                        }
+                        <button class="btn btn-sm btn-edit"   @onclick="@(() => OpenEditModal(task))">Edit</button>
+                        <button class="btn btn-sm btn-delete" @onclick="@(() => DeleteTask(task.Id))">Delete</button>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</main>
+
+@if (showModal)
+{
+    <div class="modal-overlay" @onclick="CloseModal">
+        <div class="modal" @onclick:stopPropagation>
+            <h2>@(editingId.HasValue ? "Edit Task" : "New Task")</h2>
+            <div class="field">
+                <label>Title <span class="required">*</span></label>
+                <input type="text" @bind="formTitle" placeholder="What needs to be done?" />
+            </div>
+            <div class="field">
+                <label>Description</label>
+                <textarea @bind="formDescription" placeholder="Optional details..." rows="2"></textarea>
+            </div>
+            <div class="row">
+                <div class="field">
+                    <label>Due Date</label>
+                    <input type="date" @bind="formDueDate" />
+                </div>
+                <div class="field">
+                    <label>Priority</label>
+                    <select @bind="formPriority">
+                        <option value="Low">Low</option>
+                        <option value="Medium">Medium</option>
+                        <option value="High">High</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-ghost" @onclick="CloseModal">Cancel</button>
+                <button class="btn btn-primary" @onclick="SaveTask">Save Task</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<TaskItem> allTasks = new();
+    private string currentFilter = "pending";
+    private bool showModal = false;
+    private Guid? editingId = null;
+
+    private string formTitle = "";
+    private string formDescription = "";
+    private DateOnly? formDueDate = null;
+    private string formPriority = "Medium";
+
+    private int pendingCount => allTasks.Count(t => !t.IsCompleted);
+
+    protected override void OnInitialized() => LoadTasks();
+
+    private void LoadTasks() => allTasks = TaskSvc.GetAll().ToList();
+
+    private List<TaskItem> FilteredTasks()
+    {
+        var filtered = currentFilter switch
+        {
+            "all"  => allTasks,
+            "done" => allTasks.Where(t => t.IsCompleted).ToList(),
+            _      => allTasks.Where(t => !t.IsCompleted).ToList()
+        };
+
+        var order = new Dictionary<Priority, int>
+        {
+            [Priority.High]   = 0,
+            [Priority.Medium] = 1,
+            [Priority.Low]    = 2
+        };
+
+        return filtered
+            .OrderBy(t => order[t.Priority])
+            .ThenBy(t => t.DueDate ?? DateTime.MaxValue)
+            .ToList();
+    }
+
+    private string ActiveClass(string filter) => currentFilter == filter ? "active" : "";
+
+    private void SetFilter(string filter) => currentFilter = filter;
+
+    private static string FormatDueDate(DateTime? d) =>
+        d.HasValue ? d.Value.ToString("d MMM yyyy") : "No due date";
+
+    private void OpenAddModal()
+    {
+        editingId = null;
+        formTitle = "";
+        formDescription = "";
+        formDueDate = null;
+        formPriority = "Medium";
+        showModal = true;
+    }
+
+    private void OpenEditModal(TaskItem task)
+    {
+        editingId = task.Id;
+        formTitle = task.Title;
+        formDescription = task.Description ?? "";
+        formDueDate = task.DueDate.HasValue ? DateOnly.FromDateTime(task.DueDate.Value) : null;
+        formPriority = task.Priority.ToString();
+        showModal = true;
+    }
+
+    private void CloseModal() => showModal = false;
+
+    private void SaveTask()
+    {
+        if (string.IsNullOrWhiteSpace(formTitle)) return;
+
+        var priority = Enum.Parse<Priority>(formPriority);
+        var dueDate = formDueDate.HasValue ? formDueDate.Value.ToDateTime(TimeOnly.MinValue) : (DateTime?)null;
+
+        if (editingId.HasValue)
+            TaskSvc.Edit(editingId.Value, formTitle, formDescription, dueDate, priority);
+        else
+            TaskSvc.Add(formTitle, formDescription, dueDate, priority);
+
+        CloseModal();
+        LoadTasks();
+    }
+
+    private void CompleteTask(Guid id)
+    {
+        TaskSvc.Complete(id);
+        LoadTasks();
+    }
+
+    private void DeleteTask(Guid id)
+    {
+        TaskSvc.Delete(id);
+        LoadTasks();
+    }
+}
