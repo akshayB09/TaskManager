@@ -6,9 +6,17 @@
 |----------|------|
 | GitHub Repo | https://github.com/akshayB09/TaskManager |
 | GitHub Actions | https://github.com/akshayB09/TaskManager/actions |
+| Live App (Azure) | https://taskmanager-akshay.azurewebsites.net |
 | Jira Board | https://claudetaskproject.atlassian.net/jira/software/projects/TM/boards |
 | Jira Backlog | https://claudetaskproject.atlassian.net/jira/software/projects/TM/backlog |
 | Atlassian Site | https://claudetaskproject.atlassian.net |
+
+## Guides
+
+| Guide | Description |
+|-------|-------------|
+| [GitHub Pipeline Setup](docs/github-pipeline.md) | How the CI/CD pipeline works, branch protection, secrets, and developer workflow |
+| [Azure Setup](docs/azure-setup.md) | How to deploy to Azure App Service from scratch at zero cost |
 
 ---
 
