@@ -1,9 +1,9 @@
-name: Build
+name: Build and Deploy
 
 on:
   push:
-    branches-ignore:
-      - main
+    branches:
+      - '**'
   pull_request:
     branches:
       - main
@@ -25,3 +25,15 @@ jobs:
 
       - name: Build
         run: dotnet build TaskManager/TaskManager.sln --no-restore --configuration Release
+
+      - name: Publish
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: dotnet publish TaskManager/TaskManager.csproj --configuration Release --output ./publish
+
+      - name: Deploy to Azure
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: taskmanager-akshay
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./publish
