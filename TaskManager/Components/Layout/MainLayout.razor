@@ -1,5 +1,19 @@
 @inherits LayoutComponentBase
 
 <div class="app">
+    <AuthorizeView>
+        <Authorized>
+            <div class="auth-bar">
+                <span>Signed in as <strong>@context.User.Identity?.Name</strong></span>
+                <a href="MicrosoftIdentity/Account/SignOut">Sign out</a>
+            </div>
+        </Authorized>
+        <NotAuthorized>
+            <div class="auth-bar">
+                <a href="MicrosoftIdentity/Account/SignIn">Sign in</a>
+            </div>
+        </NotAuthorized>
+    </AuthorizeView>
+
     @Body
 </div>
