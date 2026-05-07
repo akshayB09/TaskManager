@@ -1,5 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Identity.Web;
+using Microsoft.Identity.Web.UI;
 using System.Text.Json.Serialization;
 using TaskManager.Application.Common;
 using TaskManager.Application.Tasks.Commands;
@@ -20,6 +22,10 @@ builder.Services.AddDbContext<TaskDbContext>(options =>
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
 builder.Services.AddScoped<ITaskRepository, TaskRepository>();
 
+builder.Services.AddMicrosoftIdentityWebAppAuthentication(builder.Configuration);
+builder.Services.AddControllersWithViews().AddMicrosoftIdentityUI();
+builder.Services.AddAuthorization();
+
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
@@ -36,12 +42,16 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseStaticFiles();
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseAntiforgery();
+
+app.MapControllers();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-var api = app.MapGroup("/api/tasks");
+var api = app.MapGroup("/api/tasks").RequireAuthorization();
 
 api.MapGet("/", (IMediator mediator) => mediator.Send(new GetAllTasksQuery()));
 
